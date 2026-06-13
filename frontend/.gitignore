@@ -1,0 +1,26 @@
+# Secrets
+.env
+.env*.local
+
+# Build output
+.next/
+out/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Dependencies (pnpm-lock.yaml is the canonical lock file)
+node_modules/
+package-lock.json
+
+# v0 / Vercel sandbox internals
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.snowflake/
+.v0-trash/
+.vercel/
+
+# OS
+.DS_Store
+Thumbs.db
