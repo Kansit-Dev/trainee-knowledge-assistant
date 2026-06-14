@@ -1,0 +1,53 @@
+# ─── Secrets ──────────────────────────────────────────────────────────────────
+# Never commit actual env files; use *.example for templates
+.env
+.env*.local
+
+# ─── Python / Backend ─────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+
+# SQLite (local dev only; prod uses Postgres)
+*.db
+*.sqlite3
+
+# ─── Docker bind-mount data ────────────────────────────────────────────────────
+# Ignore runtime-generated files but keep directory scaffold via .gitkeep
+backend/data/uploads/*
+!backend/data/uploads/.gitkeep
+!backend/data/.gitkeep
+
+# Legacy uploads path (pre-Docker-bind-mount)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# ─── Node / Frontend ──────────────────────────────────────────────────────────
+node_modules/
+.next/
+.nuxt/
+out/
+dist/
+*.tsbuildinfo
+
+# package-lock is redundant when using pnpm (pnpm-lock.yaml is the lock file)
+package-lock.json
+
+# ─── Scratch / one-off outputs ────────────────────────────────────────────────
+structure.txt
+
+# ─── Editor & IDE ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini

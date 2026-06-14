@@ -1,0 +1,66 @@
+services:
+  db:
+    image: postgres:16
+    container_name: trainee-db
+    env_file:
+      - .env               # provides POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: trainee-backend
+    env_file:
+      - backend/.env       # local dev overrides (not committed)
+      - .env               # root shared vars (OpenAI key, JWT, etc.)
+    environment:
+      # Ensure CORS allows the frontend origin
+      FRONTEND_ORIGIN: "http://localhost:3000"
+      # Point to postgres — hardcoded to match POSTGRES_* in root .env
+      DATABASE_URL: "postgresql://trainee:trainee_secret@db:5432/knowledge"
+      UPLOAD_DIR: "/app/data/uploads"
+    ports:
+      - "8000:8000"
+    volumes:
+      # Bind-mount uploads so files survive rebuilds
+      - ./backend/data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Injected at build time so Next.js inlines it into the bundle
+        NEXT_PUBLIC_API_URL: "http://localhost:8000"
+    container_name: trainee-frontend
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: "http://localhost:8000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:   # named volume — postgres data persists across rebuilds
