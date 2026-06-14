@@ -162,20 +162,111 @@ prose summary) to verify it actually ran.
 
 ---
 
-## Session 11: Wiring frontend to the real backend (in progress)
+## Session 11: Wiring frontend to the real backend
 
-**Prompt:** "เดี๋ยวนะ, ตอนนี้ได้ละสั่งให้ลบ mock ละเชื่อม front/back จริงยังไงดี" — after a
-screenshot showed the chat UI still returning a hardcoded "(This is a mock answer —
-wire up the backend to get real document-grounded responses.)" string from
-`lib/mock-data.ts`.
+**Prompt:** "ตอนนี้ได้แล้ว สั่งให้ลบ mock แล้วเชื่อม front/back จริงยังไงดี" — หลังจาก
+screenshot แสดงให้เห็นว่า chat UI ยังตอบกลับด้วย hardcoded string
+"(This is a mock answer — wire up the backend to get real document-grounded responses.)"
+จาก `lib/mock-data.ts`
 
-**AI Response:** Recommended NOT deleting the mock layer immediately. Instead: (1)
-verify the real backend answers correctly via direct curl first, (2) create
-`lib/api.ts` as a typed fetch wrapper without touching other files, (3) switch
-`auth-context.tsx` to use it and test login via the UI, (4) switch `store.tsx`
-function-by-function (`createConversation` → `attachDocument` → `sendMessage` → rest),
-testing after each, and only then (5) `grep` for remaining `mock-data` imports and
-delete the file once unused.
+**AI Response:** Claude Code สร้าง `lib/api.ts` เป็น typed fetch wrapper ที่ครบสมบูรณ์
+(login, getMe, listConversations, createConversation, getConversation, updateConversation,
+deleteConversation, listDocuments, uploadDocument, deleteDocument, sendChatMessage,
+getSessionUsage) พร้อม JWT attachment จาก localStorage, camelCase normalization,
+และ ApiError class สำหรับ error handling จากนั้นแก้ `auth-context.tsx` ให้เรียก
+`api.login()` และ `api.getMe()` จริง และแก้ `store.tsx` ทุก function ให้เรียก
+backend จริงแทน mock
 
-**My Adjustment:** In progress — `lib/api.ts` creation is the next step to be run via
-Claude Code on the local project.
+**My Adjustment:** แนะนำให้ทำทีละขั้น (สร้าง api.ts ก่อน → auth-context → store)
+แทนที่จะแก้ทุกไฟล์พร้อมกัน เพื่อให้ debug ง่ายถ้ามีปัญหา และให้ตรวจสอบด้วย
+`grep -r 'mock-data'` ก่อนลบไฟล์จริง ยืนยันด้วย `pnpm build` ผ่านก่อน commit
+
+---
+
+## Session 12: ตรวจสอบและแก้ไข docker-compose.yml ที่ผิด
+
+**Prompt:** "docker-compose.yml ที่สร้างมามีปัญหา: (1) depends_on ของ backend ผิด
+(2) backend ไม่มี healthcheck (3) NEXT_PUBLIC_API_URL อยู่ผิด service
+(4) backend ต้องมี env_file (5) ต้องมี root .env"
+
+**AI Response:** Claude Code แก้ไขไฟล์ทีละจุดตามที่ระบุ — ย้าย `depends_on` ให้ถูก
+ทิศทาง (frontend depends on backend), เพิ่ม healthcheck บน backend ที่เรียก `/health`,
+ย้าย `NEXT_PUBLIC_API_URL` ไปอยู่ใน frontend service, เพิ่ม `env_file: backend/.env`,
+สร้าง root `.env`
+
+**My Adjustment:** Claude Code ยังเขียน `depends_on` แบบผสม list กับ dict ทำให้
+YAML invalid — ต้องระบุให้ชัดว่าใช้ mapping syntax (`backend: condition: service_healthy`)
+ไม่ใช่ list ผมตรวจ output ก่อน approve ทุกครั้งและปฏิเสธไฟล์ที่ผิด
+
+---
+
+## Session 13: เพิ่ม PostgreSQL service ใน docker-compose
+
+**Prompt:** "เพิ่ม service `db` (postgres:16) พร้อม healthcheck, volume persistent,
+DATABASE_URL=postgresql://... เพิ่ม psycopg2-binary ใน requirements.txt,
+backend depends_on db: condition: service_healthy รัน docker compose up --build ทดสอบจริง"
+
+**AI Response:** Claude Code เพิ่ม `db` service (postgres:16), named volume
+`postgres_data`, healthcheck ด้วย `pg_isready`, เพิ่ม `psycopg2-binary==2.9.10`
+ใน requirements.txt, แก้ backend depends_on ให้รอ db healthy ก่อน
+
+**My Adjustment:** พบ bug ระหว่างทาง — `DATABASE_URL: "postgresql://${POSTGRES_USER}:..."`
+ใน `environment:` block ของ docker-compose ทำ variable expansion จาก host shell
+ไม่ใช่จาก `env_file` ทำให้ password ว่างและ postgres ปฏิเสธ connection
+Claude Code แก้โดย hardcode credentials ก่อน แต่ผมสังเกตว่านั่นทำให้ credentials
+หลุดเข้า git จึงสั่งให้แก้กลับเป็น `${VAR}` โดยให้ root `.env` อยู่ข้างๆ
+`docker-compose.yml` ซึ่ง Compose อ่านอัตโนมัติ
+
+---
+
+## Session 14: สร้าง git repo และ commit แยกเป็นขั้นตอน
+
+**Prompt:** "ยังไม่ได้ push ขึ้น git เลย อยากให้ commit แยกเป็นขั้นตอนตามลำดับ
+การพัฒนาที่สมเหตุสมผล ไม่ใช่ commit เดียวรวมทุกอย่าง"
+
+**AI Response:** Claude Code รัน `git init`, ตั้ง user config, แล้ว commit แยก
+9 ขั้นตอนโดยใช้ `git add <files>` เจาะจงแต่ละกลุ่ม: frontend scaffold → backend auth
+→ conversations → chat/RAG → documents → usage/wiring → Dockerfile →
+postgres/compose → docs
+
+**My Adjustment:** พบว่า `.git` directory ที่มีอยู่เดิมไม่สมบูรณ์ (ไม่มี `objects/`
+และ `refs/`) เนื่องจาก GitKraken เขียนทับบางส่วน ต้องลบแล้ว `git init` ใหม่
+ผมตรวจสอบด้วย `ls -la .git` และ `git cat-file` ก่อนตัดสินใจ ไม่ได้ลบทันทีตามที่
+AI แนะนำแรก นอกจากนี้ยังต้องลบ `structure.txt` (node_modules dump 2.8MB)
+ออกก่อน commit ด้วย
+
+---
+
+## Session 15: เชื่อมต่อ frontend กับ backend จริง ลบ mock layer
+
+**Prompt:** "grep หา mock-data imports ใน frontend ทั้งหมด ถ้าไม่มีให้ลบ mock-data.ts
+แล้วรัน pnpm build ยืนยันว่า build ผ่าน"
+
+**AI Response:** Claude Code รัน `Get-ChildItem` + `Select-String` scan ทุก
+`.ts`/`.tsx` ใน `app/`, `components/`, `lib/` ยกเว้น `node_modules` และ `.next`
+— ไม่พบ import จาก `mock-data` เลย จากนั้นลบ `frontend/lib/mock-data.ts` แล้วรัน
+`pnpm build` ผ่านสำเร็จ (`✓ Compiled successfully`)
+
+**My Adjustment:** ต้องระวังว่า PowerShell ไม่มี `grep` ต้องใช้ `Select-String` แทน
+และต้อง exclude `node_modules`/`.next` ออกก่อน scan ไม่งั้นจะค้างนาน ผมแก้ prompt
+ให้ระบุ path ที่จะ scan ให้ชัดเจน ไม่ใช่ scan ทั้ง `frontend/` แบบกว้างๆ
+
+---
+
+## Session 16: เพิ่ม rate limiting บน POST /chat
+
+**Prompt:** "เพิ่ม rate limiting สำหรับ POST /chat ใช้ slowapi จำกัด 10 requests
+ต่อนาทีต่อ IP ทดสอบจริงโดยส่ง request เกิน 10 ครั้ง ยืนยันว่าได้ 429 response"
+
+**AI Response:** Claude Code เพิ่ม `slowapi` ใน `requirements.txt`, แก้ `main.py`
+เพิ่ม `Limiter`, `SlowAPIMiddleware`, และ exception handler สำหรับ `RateLimitExceeded`
+return 429 JSON, แก้ `routers/chat.py` เพิ่ม `@limiter.limit("10/minute")` decorator
+และ inject `Request` parameter พบ circular import ระหว่างทาง แก้โดยแยก `limiter`
+instance ออกเป็น `app/core/limiter.py` แล้ว import จากที่นั่นแทน ทดสอบด้วยการส่ง
+11 requests ติดกัน — requests 1-10 ได้ 200, request ที่ 11 ได้ 429 พร้อม
+`{"detail": "Rate limit exceeded. Please wait before sending another message."}`
+
+**My Adjustment:** ต้องตรวจสอบว่า `Request` object ถูก inject เป็น parameter แรก
+ของ endpoint function จริงๆ (slowapi requirement) และ exception handler ต้องอยู่
+ก่อน router registration ใน `main.py` มิฉะนั้น 429 จะ return เป็น HTML แทน JSON
+ยืนยันด้วย curl จริงว่าครั้งที่ 11 ได้ 429 response พร้อม JSON body ที่ถูกต้อง
