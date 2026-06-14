@@ -25,8 +25,8 @@ services:
     environment:
       # Ensure CORS allows the frontend origin
       FRONTEND_ORIGIN: "http://localhost:3000"
-      # Point to postgres — hardcoded to match POSTGRES_* in root .env
-      DATABASE_URL: "postgresql://trainee:trainee_secret@db:5432/knowledge"
+      # Point to postgres — reads POSTGRES_* vars from root .env
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}"
       UPLOAD_DIR: "/app/data/uploads"
     ports:
       - "8000:8000"
