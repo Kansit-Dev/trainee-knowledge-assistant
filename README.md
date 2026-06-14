@@ -7,7 +7,7 @@ questions grounded in their content. Built for the Junior Developer 2026 coding 
 
 - **Frontend:** Next.js (App Router)
 - **Backend:** FastAPI (Python 3.11+)
-- **Database:** SQLite (via SQLAlchemy, configurable to PostgreSQL through `DATABASE_URL`)
+- **Database:** PostgreSQL 16 (via SQLAlchemy + psycopg2, configurable ผ่าน `DATABASE_URL`)
 - **Vector DB:** Not yet implemented (RAG currently uses naive full-document context, see Known Issues)
 - **Auth:** JWT (`python-jose`) + `bcrypt`
 - **LLM Provider:** OpenAI-compatible API (configurable `OPENAI_BASE_URL`/`OPENAI_MODEL`, e.g. Groq)
@@ -37,11 +37,13 @@ docker compose up --build
 
 ## Features Done
 
-- [x] Login + Protected Routes (JWT, bcrypt, mock user `admin/admin123`)
+- [x] Login + Protected Routes (JWT, bcrypt, seeded user `admin/admin123`)
 - [x] File Upload (PDF/TXT) — extension + MIME sniff + size cap + filename sanitization
 - [x] Chat with AI (basic) — timeout + clean error handling
 - [x] Chat with Uploaded File Context — naive full-text context injection + citations
 - [x] Token Usage Counter — per-message usage + `/usage/session` totals
+- [x] Dockerized full-stack — `docker compose up --build` runs frontend + backend + PostgreSQL
+- [x] DATABASE_URL via environment variables (no hardcoded credentials)
 - [ ] RAG with Vector DB (ChromaDB) — not done yet
 - [ ] Streaming response — not done yet
 - [ ] Rate limiting — not done yet
@@ -60,7 +62,7 @@ FastAPI
    ├── /conversations → CRUD, scoped per user
    └── /usage/session → aggregate token usage
         │
-        └── SQLite/PostgreSQL (users, conversations, messages, documents)
+        └─ PostgreSQL 16 (users, conversations, messages, documents)
 ```
 
 Backend layering: `routers/` (HTTP) → `services/` (business logic) → `repositories/` (DB access)
