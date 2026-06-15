@@ -74,5 +74,8 @@ def delete_document(
     if os.path.exists(document.storage_path):
         os.remove(document.storage_path)
 
+    from app.models.conversation import ConversationDocument
+    db.query(ConversationDocument).filter(ConversationDocument.document_id == document_id).delete(synchronize_session=False)
+
     document_repo.delete_document(db, document)
     return None

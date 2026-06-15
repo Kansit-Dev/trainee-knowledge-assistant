@@ -14,9 +14,14 @@ ALLOWED_MIME_TYPES = {
 
 
 def sanitize_filename(filename: str) -> str:
-    """Strip directory components and unsafe characters to prevent path traversal."""
+    """Strip directory components and unsafe characters to prevent path traversal,
+    while allowing Thai characters and standard symbols.
+    """
     name = os.path.basename(filename)
-    name = re.sub(r"[^A-Za-z0-9._-]", "_", name)
+    # Allow English alphanumeric, Thai block (including vowels/tones), spaces, dots, hyphens, and underscores
+    name = re.sub(r"[^\w\s\u0e00-\u0e7f.-]", "_", name)
+    # Strip leading/trailing dots and spaces to prevent traversal or hidden files
+    name = name.strip(". ")
     return name or "file"
 
 
