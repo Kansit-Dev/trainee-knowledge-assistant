@@ -23,21 +23,27 @@ export function DocumentsPanel() {
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return
-    const file = files[0]
-    const lower = file.name.toLowerCase()
-    // Client-side validation. The backend MUST re-validate type + size.
-    if (!ACCEPTED.some((ext) => lower.endsWith(ext))) {
-      toast.error("Unsupported file type", { description: "Only PDF and TXT are allowed." })
-      return
+
+    const validFiles: File[] = []
+    for (const file of Array.from(files)) {
+      const lower = file.name.toLowerCase()
+      if (!ACCEPTED.some((ext) => lower.endsWith(ext))) {
+        toast.error(`Unsupported file: ${file.name}`, { description: "Only PDF and TXT are allowed." })
+        continue
+      }
+      if (file.size > MAX_BYTES) {
+        toast.error(`File too large: ${file.name}`, { description: "Maximum size is 10 MB." })
+        continue
+      }
+      validFiles.push(file)
     }
-    if (file.size > MAX_BYTES) {
-      toast.error("File too large", { description: "Maximum size is 10 MB." })
-      return
-    }
+
+    if (validFiles.length === 0) return
+
     setUploading(true)
     try {
-      await attachDocument(file)
-      toast.success("Document ready", { description: `${file.name} was processed.` })
+      await Promise.all(validFiles.map((f) => attachDocument(f)))
+      toast.success(`${validFiles.length} document${validFiles.length > 1 ? "s" : ""} ready`)
     } finally {
       setUploading(false)
       if (inputRef.current) inputRef.current.value = ""
@@ -67,6 +73,7 @@ export function DocumentsPanel() {
           ref={inputRef}
           type="file"
           accept=".pdf,.txt,application/pdf,text/plain"
+          multiple
           className="sr-only"
           onChange={(e) => handleFiles(e.target.files)}
         />

@@ -43,13 +43,12 @@ def update_conversation(
     if document_ids is not None:
         db.query(ConversationDocument).filter(
             ConversationDocument.conversation_id == conversation.id
-        ).delete()
+        ).delete(synchronize_session=False)
         for doc_id in document_ids:
             db.add(
                 ConversationDocument(conversation_id=conversation.id, document_id=doc_id)
             )
 
-    db.add(conversation)
     db.commit()
     db.refresh(conversation)
     return conversation

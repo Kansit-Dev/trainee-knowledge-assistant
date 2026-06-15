@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,7 @@ router = APIRouter(prefix="/usage", tags=["usage"])
 
 @router.get("/session", response_model=SessionUsage)
 def session_usage(
+    conversation_id: str | None = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

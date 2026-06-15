@@ -93,20 +93,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [conversations, activeId],
   )
 
-  // Sum token usage from every assistant message across all conversations.
   const sessionTokens = useMemo<TokenUsage>(() => {
     let prompt = 0
     let completion = 0
-    for (const conv of conversations) {
-      for (const m of conv.messages) {
-        if (m.usage) {
-          prompt += m.usage.promptTokens
-          completion += m.usage.completionTokens
-        }
+    const messages = activeConversation?.messages ?? []
+    for (const m of messages) {
+      if (m.usage) {
+        prompt += m.usage.promptTokens
+        completion += m.usage.completionTokens
       }
     }
     return { promptTokens: prompt, completionTokens: completion, totalTokens: prompt + completion }
-  }, [conversations])
+  }, [activeConversation])
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -138,14 +136,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const toggleDocumentOnConversation = useCallback(
     async (docId: string): Promise<void> => {
       if (!activeId) return
+
+      setConversations((prev) => {
+        const conv = prev.find((c) => c.id === activeId)
+        if (!conv) return prev
+        const has = conv.documentIds.includes(docId)
+        const newDocIds = has
+          ? conv.documentIds.filter((d) => d !== docId)
+          : [...conv.documentIds, docId]
+        return prev.map((c) =>
+          c.id === activeId ? { ...c, documentIds: newDocIds } : c
+        )
+      })
+
       const conv = conversations.find((c) => c.id === activeId)
       if (!conv) return
       const has = conv.documentIds.includes(docId)
       const newDocIds = has
         ? conv.documentIds.filter((d) => d !== docId)
         : [...conv.documentIds, docId]
-      const updated = await api.updateConversation(activeId, { documentIds: newDocIds })
-      patchConversation(activeId, () => updated)
+
+      try {
+        const updated = await api.updateConversation(activeId, { documentIds: newDocIds })
+        patchConversation(activeId, () => updated)
+      } catch {
+        // rollback ถ้า backend fail
+        patchConversation(activeId, (c) => ({
+          ...c,
+          documentIds: conv.documentIds,
+        }))
+      }
     },
     [activeId, conversations, patchConversation],
   )
@@ -201,7 +221,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         // Persist title to backend for first-message conversations.
         if (isFirstMessage) {
-          api.updateConversation(convId, { title: trimmed.slice(0, 60) }).catch(() => {})
+          api.updateConversation(convId, { title: trimmed.slice(0, 60) }).catch(() => { })
         }
       } catch (err) {
         // Show a clean error in the chat instead of crashing.
@@ -224,8 +244,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const doc = await api.uploadDocument(file)
       setDocuments((prev) => [doc, ...prev])
 
-      // Auto-attach to the active conversation as RAG context.
       if (activeId) {
+        setConversations((prev) => {
+          const conv = prev.find((c) => c.id === activeId)
+          if (!conv || conv.documentIds.includes(doc.id)) return prev
+          return prev.map((c) =>
+            c.id === activeId
+              ? { ...c, documentIds: [...c.documentIds, doc.id] }
+              : c
+          )
+        })
+
         const conv = conversations.find((c) => c.id === activeId)
         if (conv && !conv.documentIds.includes(doc.id)) {
           const updated = await api.updateConversation(activeId, {
