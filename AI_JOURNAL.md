@@ -270,3 +270,25 @@ instance ออกเป็น `app/core/limiter.py` แล้ว import จา�
 ของ endpoint function จริงๆ (slowapi requirement) และ exception handler ต้องอยู่
 ก่อน router registration ใน `main.py` มิฉะนั้น 429 จะ return เป็น HTML แทน JSON
 ยืนยันด้วย curl จริงว่าครั้งที่ 11 ได้ 429 response พร้อม JSON body ที่ถูกต้อง
+
+---
+
+## Session 17: เพิ่ม Streaming SSE สำหรับ /chat endpoint
+
+**Prompt:** "เพิ่ม `stream_chat_completion` ใน `llm_service.py` + `StreamingResponse`
+ใน `chat.py` รองรับ `?stream=true` ส่ง SSE ทีละ character พร้อม `[DONE]` event
+สุดท้ายที่มี usage + citations ทดสอบด้วย `curl -N` จริง"
+
+**AI Response:** Claude Code เพิ่ม async generator `stream_chat_completion` ใน
+`llm_service.py` ที่เรียก provider ด้วย `stream=True` และ yield delta content
+ทีละ chunk ผ่าน httpx streaming context แก้ `chat.py` เพิ่ม
+`stream: bool = Query(False)` — streaming path return `StreamingResponse`
+ส่ง `data: <char>\n\n` ทีละตัวอักษร และ `data: [DONE] {...}\n\n` พร้อม
+`message_id`, `usage`, `citations` ตอนจบ non-streaming path ไม่เปลี่ยนแปลง
+
+**My Adjustment:** พบ `DetachedInstanceError` ระหว่างทาง เพราะ SQLAlchemy session
+หมดอายุก่อน async generator รัน ทำให้ `conversation.id` ถูก access หลัง session
+ปิดไปแล้ว แก้โดย capture `conversation_id` เป็น plain string ก่อน return
+`StreamingResponse` ไม่ใช่ access `.id` จาก ORM object ภายใน generator
+ยืนยันด้วย `curl -N` raw output เห็น SSE stream จริง: `H`, `e`, `l`, `l`, `o`...
+จนถึง `data: [DONE] {"message_id": "...", "usage": {...}, "citations": []}`
