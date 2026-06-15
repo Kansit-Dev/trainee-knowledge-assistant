@@ -45,9 +45,9 @@ docker compose up --build
 - [x] Dockerized full-stack — `docker compose up --build` runs frontend + backend + PostgreSQL
 - [x] DATABASE_URL via environment variables (no hardcoded credentials)
 - [ ] RAG with Vector DB (ChromaDB) — not done yet
-- [ ] Streaming response — not done yet
-- [ ] Rate limiting — not done yet
-- [ ] Unit tests — not done yet
+- [x] Streaming response (Server-Sent Events)
+- [x] Rate limiting (SlowAPI, 10 reqs/min per IP)
+- [x] Unit tests (pytest + coverage >= 40%)
 
 ## Architecture
 
@@ -74,8 +74,5 @@ Backend layering: `routers/` (HTTP) → `services/` (business logic) → `reposi
   chars per doc) is injected into the system prompt. This works for small documents but does
   not scale to large files and does not do semantic retrieval. A proper ChromaDB-based
   chunking + embedding + retrieval pipeline is the planned next step (Bonus D).
-- No streaming responses yet — `/chat` returns a complete response after the LLM call finishes.
-- No automated tests yet.
-- No rate limiting on `/chat` yet.
 - Citations currently point to the start of the document content rather than the specific
   retrieved chunk, since there is no chunk-level retrieval yet.
